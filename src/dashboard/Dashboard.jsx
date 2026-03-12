@@ -1,6 +1,7 @@
 import './dashboard.css';
 
 import React, {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -8,73 +9,123 @@ import React, {
 
 const seedMemories = [
   {
-    id: "m1",
-    title: "Monterey",
-    startDate: "2024-07-14",
-    endDate: "2024-08-24",
-    createdAt: "2024-08-25T00:00:00Z",
+    id: 'm1',
+    title: 'Monterey',
+    startDate: '2024-07-14',
+    endDate: '2024-08-24',
+    createdAt: '2024-08-25T00:00:00Z',
+    coverPhotoId: 'p1',
     items: [
       {
-        id: "p1",
-        imgUrl: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&auto=format&fit=crop",
-        description: "First sunset together.",
+        id: 'p1',
+        imgUrl: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&auto=format&fit=crop',
+        description: 'First sunset together.',
       },
       {
-        id: "p2",
-        imgUrl: "https://images.unsplash.com/photo-1528127269322-539801943592?w=1200&auto=format&fit=crop",
-        description: "Walking downtown.",
+        id: 'p2',
+        imgUrl: 'https://images.unsplash.com/photo-1528127269322-539801943592?w=1200&auto=format&fit=crop',
+        description: 'Walking downtown.',
       },
     ],
   },
   {
-    id: "m2",
-    title: "Road Trip",
-    startDate: "2024-09-01",
-    endDate: "2024-09-05",
-    createdAt: "2024-09-06T00:00:00Z",
+    id: 'm2',
+    title: 'Road Trip',
+    startDate: '2024-09-01',
+    endDate: '2024-09-05',
+    createdAt: '2024-09-06T00:00:00Z',
+    coverPhotoId: null,
     items: [],
   },
 ];
 
 function prettyDate(yyyyMmDd) {
-  if (!yyyyMmDd) return "—";
-  const [y, m, d] = String(yyyyMmDd).split("-").map(Number);
+  if (!yyyyMmDd) return '—';
+  const [y, m, d] = String(yyyyMmDd).split('-').map(Number);
   const dt = new Date(y, m - 1, d);
-  return dt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return dt.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 function formatRange(start, end) {
   return `${prettyDate(start)} – ${prettyDate(end)}`;
 }
 
+function getCoverPhoto(memory) {
+  if (!memory?.items?.length) return null;
+  return memory.items.find((item) => item.id === memory.coverPhotoId) || memory.items[0];
+}
+
+function hexToRgbString(hex) {
+  const safeHex = String(hex || '#ff4d4d').replace('#', '');
+  const normalized = safeHex.length === 3
+    ? safeHex.split('').map((ch) => ch + ch).join('')
+    : safeHex;
+
+  const int = Number.parseInt(normalized, 16);
+  if (Number.isNaN(int)) return '255, 77, 77';
+
+  const r = (int >> 16) & 255;
+  const g = (int >> 8) & 255;
+  const b = int & 255;
+  return `${r}, ${g}, ${b}`;
+}
+
 export default function Dashboard() {
-  const [uploadKey, setUploadKey] = useState(localStorage.getItem("uploadKey") || "");
   const [memories, setMemories] = useState(() =>
     [...seedMemories].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
   );
 
+  const [glowColor, setGlowColor] = useState(
+    localStorage.getItem('memoryGlowColor') || '#ff4d4d'
+  );
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [slideshowIndex, setSlideshowIndex] = useState(0);
+
   const latestId = useMemo(() => memories[0]?.id, [memories]);
 
-  // Memory modal
+  const featuredPhotos = useMemo(() => {
+    const montereyMemory = memories.find((memory) => memory.title === 'Monterey');
+    if (!montereyMemory?.items?.length) return [];
+
+    return montereyMemory.items.map((item) => ({
+      memoryId: montereyMemory.id,
+      memoryTitle: montereyMemory.title,
+      imgUrl: item.imgUrl,
+      description: item.description,
+    }));
+  }, [memories]);
+
+  const safeSlideshowIndex = featuredPhotos.length
+    ? slideshowIndex % featuredPhotos.length
+    : 0;
+  const activeSlide = featuredPhotos[safeSlideshowIndex] || null;
+
   const [openMemoryId, setOpenMemoryId] = useState(null);
   const activeMemory = useMemo(
     () => memories.find((m) => m.id === openMemoryId) || null,
     [memories, openMemoryId]
   );
 
-  // Create modal
   const [createOpen, setCreateOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [newTitle, setNewTitle] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
-  // Carousel
   const carouselRef = useRef(null);
 
-  function onChangeKey(val) {
-    setUploadKey(val);
-    localStorage.setItem("uploadKey", val.trim());
-  }
+  useEffect(() => {
+    if (!featuredPhotos.length) return;
+
+    const interval = window.setInterval(() => {
+      setSlideshowIndex((prev) => (prev + 1) % featuredPhotos.length);
+    }, 3500);
+
+    return () => window.clearInterval(interval);
+  }, [featuredPhotos]);
 
   function openMemory(id) {
     setOpenMemoryId(id);
@@ -88,9 +139,9 @@ export default function Dashboard() {
   }
 
   function showCreate() {
-    setNewTitle("");
-    setStartDate("");
-    setEndDate("");
+    setNewTitle('');
+    setStartDate('');
+    setEndDate('');
     setCreateOpen(true);
   }
 
@@ -98,19 +149,31 @@ export default function Dashboard() {
     setCreateOpen(false);
   }
 
+  function updateGlowColor(val) {
+    setGlowColor(val);
+    localStorage.setItem('memoryGlowColor', val);
+  }
+
   function createMemoryFake() {
-    // no real API — just UI skeleton
-    if (!startDate || !endDate) return alert("Pick start and end date (skeleton check).");
-    if (startDate > endDate) return alert("Start date cannot be after end date.");
+    if (!startDate || !endDate) {
+      alert('Pick start and end date (skeleton check).');
+      return;
+    }
+
+    if (startDate > endDate) {
+      alert('Start date cannot be after end date.');
+      return;
+    }
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const mem = {
       id,
-      title: newTitle.trim() || "New memory",
+      title: newTitle.trim() || 'New memory',
       startDate,
       endDate,
       createdAt: now,
+      coverPhotoId: null,
       items: [],
     };
 
@@ -120,7 +183,7 @@ export default function Dashboard() {
 
   function deleteMemoryFake(id) {
     const mem = memories.find((m) => m.id === id);
-    const ok = window.confirm(`Delete "${mem?.title || "this memory"}"? (skeleton only)`);
+    const ok = window.confirm(`Delete "${mem?.title || 'this memory'}"? (skeleton only)`);
     if (!ok) return;
     setMemories((prev) => prev.filter((m) => m.id !== id));
     setOpenMemoryId(null);
@@ -129,36 +192,89 @@ export default function Dashboard() {
   function scrollCarousel(dir) {
     const el = carouselRef.current;
     if (!el) return;
-    const delta = Math.max(320, el.clientWidth * 0.9) * (dir === "left" ? -1 : 1);
-    el.scrollBy({ left: delta, behavior: "smooth" });
+    const delta = Math.max(320, el.clientWidth * 0.9) * (dir === 'left' ? -1 : 1);
+    el.scrollBy({ left: delta, behavior: 'smooth' });
   }
 
   return (
-    <div className="dashBody">
+    <div
+      className="dashBody"
+      style={{
+        '--glow-color': glowColor,
+        '--glow-rgb': hexToRgbString(glowColor),
+      }}
+    >
       <main className="wrap">
-        <header className="top">
-          <div className="titleBlock">
-            <h1>Timeline</h1>
-            <p className="subtitle">ever expanding memories</p>
+        <header className="topBar">
+          <div className="brandRow">
+            <div className="titleBlock leftTitle">
+              <h1>Memory Bank</h1>
+              <p className="subtitle">A clean timeline for your favorite moments</p>
+            </div>
+
+            <div className="settingsAnchor">
+              <button
+                className="gearBtn"
+                type="button"
+                aria-label="Open appearance settings"
+                onClick={() => setSettingsOpen((prev) => !prev)}
+              >
+                ⚙
+              </button>
+
+              {settingsOpen && (
+                <div className="settingsPanel">
+                  <div className="settingsLabel">Outline glow color</div>
+                  <div className="settingsRow">
+                    <input
+                      className="colorPicker"
+                      type="color"
+                      value={glowColor}
+                      onChange={(e) => updateGlowColor(e.target.value)}
+                    />
+                    <span className="colorValue">{glowColor.toUpperCase()}</span>
+                  </div>
+                  <button
+                    className="settingsSubmit"
+                    type="button"
+                    onClick={() => setSettingsOpen(false)}
+                  >
+                    Enter
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="keyRow">
-            <input
-              className="input"
-              value={uploadKey}
-              onChange={(e) => onChangeKey(e.target.value)}
-              placeholder="Upload key (saved on device) — UI only"
-            />
-            <button className="btn" onClick={showCreate}>+ New memory</button>
-            <button
-              className="btn"
-              onClick={() => {
-                localStorage.setItem("unlocked", "0");
-                alert("Lock out (skeleton). Wire to router later.");
+          <div className="heroShowcase">
+            <div
+              className="heroSlideCard cardSurface featuredSurface"
+              style={{
+                border: `1.5px solid rgba(${hexToRgbString(glowColor)}, 0.38)`,
+                boxShadow: `0 18px 44px rgba(${hexToRgbString(glowColor)}, 0.12)`,
               }}
             >
-              Lock out
-            </button>
+              {activeSlide ? (
+                <>
+                  <img
+                    src={activeSlide.imgUrl}
+                    alt={activeSlide.memoryTitle}
+                    className="heroImage"
+                  />
+                  <div className="heroOverlay">
+                    <div className="heroMemoryTag">Featured memory</div>
+                    <div className="heroPhotoSource">From {activeSlide.memoryTitle}</div>
+                    <div className="heroCaption">{activeSlide.description}</div>
+                  </div>
+                </>
+              ) : (
+                <div className="heroEmpty">Create a memory to start your featured slideshow.</div>
+              )}
+            </div>
+
+            <div className="heroActions underSlideshow">
+              <button className="btn primaryBtn" onClick={showCreate}>+ New memory</button>
+            </div>
           </div>
         </header>
 
@@ -174,14 +290,43 @@ export default function Dashboard() {
             memories.map((m, idx) => (
               <div className="nodeRow" key={m.id}>
                 <div
-                  className={`node ${idx % 2 === 0 ? "left" : "right"}`}
+                  className={`node ${idx % 2 === 0 ? 'left' : 'right'} cardSurface`}
                   onClick={() => openMemory(m.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openMemory(m.id);
+                    }
+                  }}
                   role="button"
                   tabIndex={0}
                 >
-                  <div className="nodeTitle">{m.title}</div>
-                  <div className="nodeMeta">
-                    {formatRange(m.startDate, m.endDate)} • {m.items?.length || 0} photo(s)
+                  <div className="nodeHeader">
+                    <div className="nodeCoverWrap">
+                      {getCoverPhoto(m) ? (
+                        <img
+                          className="nodeCover"
+                          src={getCoverPhoto(m).imgUrl}
+                          alt={m.title}
+                        />
+                      ) : (
+                        <div className="nodeCover fallbackCover">No photo</div>
+                      )}
+                      <div className="starBadge">★</div>
+                    </div>
+
+                    <div className="nodeHeaderText">
+                      <div className="nodeTitle">{m.title}</div>
+                      <div className="nodeMeta">
+                        {formatRange(m.startDate, m.endDate)} • {m.items?.length || 0} photo(s)
+                      </div>
+                      <div className="nodePreviewRow">
+                        <span className="chip">{m.items?.length || 0} photos</span>
+                        <span className="chip mutedChip">
+                          {m.id === latestId ? 'Newest memory' : 'Saved memory'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   {m.id === latestId && (
@@ -201,15 +346,14 @@ export default function Dashboard() {
         </section>
       </main>
 
-      {/* Memory Modal */}
       {activeMemory && (
-        <div className="modal" onClick={(e) => e.target.classList.contains("modal") && closeMemory()}>
+        <div className="modal" onClick={(e) => e.target.classList.contains('modal') && closeMemory()}>
           <div className="modalCard">
             <div className="modalTop">
               <div>
                 <div className="modalTitle">{activeMemory.title}</div>
                 <div className="modalSub">
-                  {formatRange(activeMemory.startDate, activeMemory.endDate)} •{" "}
+                  {formatRange(activeMemory.startDate, activeMemory.endDate)} •{' '}
                   {activeMemory.items?.length || 0} photo(s)
                 </div>
               </div>
@@ -218,12 +362,12 @@ export default function Dashboard() {
                 <button className="dangerBtn" onClick={() => deleteMemoryFake(activeMemory.id)}>
                   Delete memory
                 </button>
-                <button className="iconBtn" onClick={closeMemory}>✕</button>
+                <button className="iconBtn" type="button" onClick={closeMemory}>✕</button>
               </div>
             </div>
 
             <div className="carouselWrap">
-              <button className="carNav left" onClick={() => scrollCarousel("left")} aria-label="Scroll left">
+              <button className="carNav left" onClick={() => scrollCarousel('left')} aria-label="Scroll left">
                 ‹
               </button>
 
@@ -240,7 +384,7 @@ export default function Dashboard() {
                 )}
               </div>
 
-              <button className="carNav right" onClick={() => scrollCarousel("right")} aria-label="Scroll right">
+              <button className="carNav right" onClick={() => scrollCarousel('right')} aria-label="Scroll right">
                 ›
               </button>
             </div>
@@ -252,7 +396,7 @@ export default function Dashboard() {
 
               <div className="uploadGrid">
                 <div className="filePick">
-                  <button className="fileBtn" onClick={() => alert("No uploading yet — skeleton")}>
+                  <button className="fileBtn" onClick={() => alert('No uploading yet — skeleton')}>
                     Choose photo
                   </button>
                   <div className="fileName">No file chosen</div>
@@ -265,7 +409,7 @@ export default function Dashboard() {
                   disabled
                 />
 
-                <button className="btn full" onClick={() => alert("No uploading yet — skeleton")}>
+                <button className="btn full" onClick={() => alert('No uploading yet — skeleton')}>
                   Upload to this memory
                 </button>
 
@@ -276,13 +420,12 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Create Modal */}
       {createOpen && (
-        <div className="modal" onClick={(e) => e.target.classList.contains("modal") && hideCreate()}>
+        <div className="modal" onClick={(e) => e.target.classList.contains('modal') && hideCreate()}>
           <div className="modalCard small">
             <div className="modalTop">
               <div className="modalTitle">Create a new memory</div>
-              <button className="iconBtn" onClick={hideCreate}>✕</button>
+              <button className="iconBtn" type="button" onClick={hideCreate}>✕</button>
             </div>
 
             <input
@@ -298,7 +441,7 @@ export default function Dashboard() {
             </div>
 
             <button className="btn" onClick={createMemoryFake}>Create memory</button>
-            <div className="status">Skeleton: saves only in browser state.</div>
+            <div className="status">Currently saves only in browser state.</div>
           </div>
         </div>
       )}

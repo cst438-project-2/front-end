@@ -1,35 +1,61 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { getCurrentUser } from '../api/users';
+/* eslint-disable react-refresh/only-export-components */
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
+
+import {
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+} from 'firebase/auth';
+
+import { auth } from '../lib/firebase';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(null); // Firebase user
   const [loading, setLoading] = useState(true);
 
+  const provider = useMemo(() => new GoogleAuthProvider(), []);
+
+  const login = async () => {
+    await signInWithPopup(auth, provider);
+  };
+
+  const logout = async () => {
+    await signOut(auth);
+  };
+
+  const getIdToken = async (forceRefresh = false) => {
+    const u = auth.currentUser;
+    if (!u) return null;
+    return await u.getIdToken(forceRefresh);
+  };
+
   useEffect(() => {
-    getCurrentUser()
-      .then((res) => setUser(res.data))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setLoading(false);
+    });
+    return unsub;
   }, []);
 
-  const login = () => {
-    // Redirect to Spring Boot OAuth2 login endpoint
-    window.location.href = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/oauth2/authorization/google`;
-  };
-
-  const logout = () => {
-    window.location.href = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/logout`;
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, setUser, loading, login, logout }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({ user, loading, login, logout, getIdToken }),
+    [user, loading]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  return useContext(AuthContext);
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+  return ctx;
 }

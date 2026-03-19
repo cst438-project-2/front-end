@@ -7,37 +7,28 @@ import React, {
   useState,
 } from 'react';
 
-const seedMemories = [
-  {
-    id: 'm1',
-    title: 'Monterey',
-    startDate: '2024-07-14',
-    endDate: '2024-08-24',
-    createdAt: '2024-08-25T00:00:00Z',
-    coverPhotoId: 'p1',
-    items: [
-      {
-        id: 'p1',
-        imgUrl: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&auto=format&fit=crop',
-        description: 'First sunset together.',
-      },
-      {
-        id: 'p2',
-        imgUrl: 'https://images.unsplash.com/photo-1528127269322-539801943592?w=1200&auto=format&fit=crop',
-        description: 'Walking downtown.',
-      },
-    ],
-  },
-  {
-    id: 'm2',
-    title: 'Road Trip',
-    startDate: '2024-09-01',
-    endDate: '2024-09-05',
-    createdAt: '2024-09-06T00:00:00Z',
-    coverPhotoId: null,
-    items: [],
-  },
-];
+import {
+  getDownloadURL,
+  ref,
+  uploadBytes,
+} from 'firebase/storage';
+
+import {
+  createAlbum,
+  deleteAlbum,
+  getAlbums,
+} from '../api/albums';
+import {
+  addPhoto,
+  deletePhoto,
+} from '../api/photos';
+import { useAuth } from '../context/AuthContext';
+import {
+  auth,
+  storage,
+} from '../lib/firebase';
+
+const seedMemories = [];
 
 function prettyDate(yyyyMmDd) {
   if (!yyyyMmDd) return '—';
@@ -74,10 +65,66 @@ function hexToRgbString(hex) {
   return `${r}, ${g}, ${b}`;
 }
 
+function sanitizeFileName(name) {
+  return String(name || 'photo')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-zA-Z0-9._-]/g, '');
+}
+
+function mapAlbumToMemory(album) {
+  const rawDescription = album.description || '';
+  let startDate = '';
+  let endDate = '';
+
+  if (rawDescription.includes('__')) {
+    const parts = rawDescription.split('__');
+    startDate = parts[0] || '';
+    endDate = parts[1] || '';
+  }
+
+  const photos = Array.isArray(album.photos) ? album.photos : [];
+
+  const items = photos.map((photo) => ({
+    id: photo.id,
+    imgUrl: photo.photoUrl,
+    description: photo.description || '',
+    storagePath: photo.storagePath || '',
+  }));
+
+  return {
+    id: album.album_id,
+    title: album.title || 'Untitled memory',
+    description: rawDescription,
+    startDate,
+    endDate,
+    createdAt: album.createdAt || new Date().toISOString(),
+    coverPhotoId: items[0]?.id || null,
+    items,
+  };
+}
+
 export default function Dashboard() {
   const [memories, setMemories] = useState(() =>
     [...seedMemories].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
   );
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (loading || !user) return;
+
+    async function loadAlbums() {
+      try {
+        const albums = await getAlbums();
+        const mapped = albums.map(mapAlbumToMemory);
+        setMemories(mapped);
+      } catch (err) {
+        console.error('Failed to load albums:', err);
+      }
+    }
+
+    loadAlbums();
+  }, [loading, user]);
 
   const [glowColor, setGlowColor] = useState(
     localStorage.getItem('memoryGlowColor') || '#ff4d4d'
@@ -115,7 +162,12 @@ export default function Dashboard() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  const carouselRef = useRef(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState([]);
+  const [pendingFile, setPendingFile] = useState(null);
+  const [pendingDescription, setPendingDescription] = useState('');
+
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!featuredPhotos.length) return;
@@ -129,13 +181,20 @@ export default function Dashboard() {
 
   function openMemory(id) {
     setOpenMemoryId(id);
-    requestAnimationFrame(() => {
-      if (carouselRef.current) carouselRef.current.scrollLeft = 0;
-    });
+    setSelectMode(false);
+    setSelectedPhotoIds([]);
+    setPendingFile(null);
+    setPendingDescription('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   function closeMemory() {
     setOpenMemoryId(null);
+    setSelectMode(false);
+    setSelectedPhotoIds([]);
+    setPendingFile(null);
+    setPendingDescription('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
   function showCreate() {
@@ -154,9 +213,9 @@ export default function Dashboard() {
     localStorage.setItem('memoryGlowColor', val);
   }
 
-  function createMemoryFake() {
+  async function createMemoryReal() {
     if (!startDate || !endDate) {
-      alert('Pick start and end date (skeleton check).');
+      alert('Pick start and end date.');
       return;
     }
 
@@ -165,35 +224,201 @@ export default function Dashboard() {
       return;
     }
 
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
-    const mem = {
-      id,
-      title: newTitle.trim() || 'New memory',
-      startDate,
-      endDate,
-      createdAt: now,
-      coverPhotoId: null,
-      items: [],
-    };
+    try {
+      const savedAlbum = await createAlbum({
+        title: newTitle.trim() || 'New memory',
+        description: `${startDate}__${endDate}`,
+      });
 
-    setMemories((prev) => [mem, ...prev]);
-    setCreateOpen(false);
+      const now = new Date().toISOString();
+
+      const mem = {
+        id: savedAlbum.album_id,
+        title: savedAlbum.title,
+        description: savedAlbum.description,
+        startDate,
+        endDate,
+        createdAt: now,
+        coverPhotoId: null,
+        items: [],
+      };
+
+      setMemories((prev) => [mem, ...prev]);
+      setCreateOpen(false);
+    } catch (err) {
+      console.error('Create memory failed:', err);
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        (typeof err?.response?.data === 'string' ? err.response.data : null) ||
+        err?.message ||
+        'Failed to create memory.';
+      alert(message);
+    }
   }
 
-  function deleteMemoryFake(id) {
+  async function deleteMemoryReal(id) {
     const mem = memories.find((m) => m.id === id);
-    const ok = window.confirm(`Delete "${mem?.title || 'this memory'}"? (skeleton only)`);
+    const ok = window.confirm(`Delete "${mem?.title || 'this memory'}"?`);
     if (!ok) return;
-    setMemories((prev) => prev.filter((m) => m.id !== id));
-    setOpenMemoryId(null);
+
+    try {
+      await deleteAlbum(id);
+      setMemories((prev) => prev.filter((m) => m.id !== id));
+      setOpenMemoryId(null);
+    } catch (err) {
+      console.error('Delete memory failed:', err);
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        (typeof err?.response?.data === 'string' ? err.response.data : null) ||
+        err?.message ||
+        'Failed to delete memory.';
+      alert(message);
+    }
   }
 
-  function scrollCarousel(dir) {
-    const el = carouselRef.current;
-    if (!el) return;
-    const delta = Math.max(320, el.clientWidth * 0.9) * (dir === 'left' ? -1 : 1);
-    el.scrollBy({ left: delta, behavior: 'smooth' });
+  function toggleSelectMode() {
+    setSelectMode((prev) => {
+      const next = !prev;
+      if (!next) setSelectedPhotoIds([]);
+      return next;
+    });
+  }
+
+  function togglePhotoSelection(photoId) {
+    if (!selectMode) return;
+
+    setSelectedPhotoIds((prev) =>
+      prev.includes(photoId)
+        ? prev.filter((id) => id !== photoId)
+        : [...prev, photoId]
+    );
+  }
+
+  async function deleteSelectedPhotos() {
+    if (!activeMemory || !selectedPhotoIds.length) return;
+
+    const ok = window.confirm(
+      `Delete ${selectedPhotoIds.length} selected photo(s) from "${activeMemory.title}"?`
+    );
+    if (!ok) return;
+
+    try {
+      await Promise.all(
+        selectedPhotoIds.map((photoId) => deletePhoto(activeMemory.id, photoId))
+      );
+
+      setMemories((prev) =>
+        prev.map((memory) => {
+          if (memory.id !== activeMemory.id) return memory;
+
+          const updatedItems = memory.items.filter(
+            (item) => !selectedPhotoIds.includes(item.id)
+          );
+
+          const coverStillExists = updatedItems.some(
+            (item) => item.id === memory.coverPhotoId
+          );
+
+          return {
+            ...memory,
+            items: updatedItems,
+            coverPhotoId: coverStillExists ? memory.coverPhotoId : updatedItems[0]?.id || null,
+          };
+        })
+      );
+
+      setSelectedPhotoIds([]);
+      setSelectMode(false);
+    } catch (err) {
+      console.error('Delete photo failed:', err);
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        (typeof err?.response?.data === 'string' ? err.response.data : null) ||
+        err?.message ||
+        'Failed to delete photo(s).';
+      alert(message);
+    }
+  }
+
+  function choosePhoto() {
+    fileInputRef.current?.click();
+  }
+
+  function handleFilePicked(e) {
+    const file = e.target.files?.[0] || null;
+    setPendingFile(file);
+  }
+
+  async function uploadPhotoReal() {
+    if (!activeMemory) return;
+
+    if (!pendingFile) {
+      alert('Choose a photo first.');
+      return;
+    }
+
+    try {
+      const user = auth.currentUser;
+
+      if (!user) {
+        alert('You must be logged in to upload photos.');
+        return;
+      }
+
+      const safeName = sanitizeFileName(pendingFile.name);
+      const uniqueName = `${Date.now()}-${crypto.randomUUID()}-${safeName}`;
+      const storagePath = `users/${user.uid}/albums/${activeMemory.id}/${uniqueName}`;
+
+      const fileRef = ref(storage, storagePath);
+
+      await uploadBytes(fileRef, pendingFile);
+      const photoUrl = await getDownloadURL(fileRef);
+
+      const payload = {
+        photoUrl,
+        storagePath,
+        description: pendingDescription.trim() || 'New photo',
+      };
+
+      const savedPhoto = await addPhoto(activeMemory.id, payload);
+
+      const newItem = {
+        id: savedPhoto?.id || crypto.randomUUID(),
+        imgUrl: savedPhoto?.photoUrl || photoUrl,
+        description: savedPhoto?.description || payload.description,
+        storagePath: savedPhoto?.storagePath || storagePath,
+      };
+
+      setMemories((prev) =>
+        prev.map((memory) => {
+          if (memory.id !== activeMemory.id) return memory;
+
+          const updatedItems = [...memory.items, newItem];
+
+          return {
+            ...memory,
+            items: updatedItems,
+            coverPhotoId: memory.coverPhotoId || newItem.id,
+          };
+        })
+      );
+
+      setPendingFile(null);
+      setPendingDescription('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (err) {
+      console.error('Photo upload failed:', err);
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        (typeof err?.response?.data === 'string' ? err.response.data : null) ||
+        err?.message ||
+        'Upload failed.';
+      alert(message);
+    }
   }
 
   return (
@@ -359,61 +584,115 @@ export default function Dashboard() {
               </div>
 
               <div className="modalActions">
-                <button className="dangerBtn" onClick={() => deleteMemoryFake(activeMemory.id)}>
+                <button className="dangerBtn" onClick={() => deleteMemoryReal(activeMemory.id)}>
                   Delete memory
                 </button>
                 <button className="iconBtn" type="button" onClick={closeMemory}>✕</button>
               </div>
             </div>
 
-            <div className="carouselWrap">
-              <button className="carNav left" onClick={() => scrollCarousel('left')} aria-label="Scroll left">
-                ‹
-              </button>
-
-              <div className="carousel" ref={carouselRef}>
-                {!activeMemory.items?.length ? (
-                  <div className="carouselEmpty">No photos yet (skeleton).</div>
-                ) : (
-                  activeMemory.items.map((it) => (
-                    <div className="slide" key={it.id}>
-                      <img src={it.imgUrl} alt="memory" />
-                      <div className="caption">{it.description}</div>
-                    </div>
-                  ))
-                )}
+            <div className="photoToolbar">
+              <div className="photoToolbarLeft">
+                <div className="sectionTitle">Photos</div>
+                <div className="sectionSub">
+                  {activeMemory.items?.length || 0} total photo(s)
+                </div>
               </div>
 
-              <button className="carNav right" onClick={() => scrollCarousel('right')} aria-label="Scroll right">
-                ›
-              </button>
+              <div className="photoToolbarRight">
+                <button className="btn secondaryBtn" type="button" onClick={toggleSelectMode}>
+                  {selectMode ? 'Cancel' : 'Select'}
+                </button>
+
+                {selectMode && selectedPhotoIds.length > 0 && (
+                  <button
+                    className="trashBtn"
+                    type="button"
+                    onClick={deleteSelectedPhotos}
+                    aria-label="Delete selected photos"
+                    title="Delete selected photos"
+                  >
+                    🗑
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="photoGridWrap">
+              {!activeMemory.items?.length ? (
+                <div className="gridEmpty">No photos yet.</div>
+              ) : (
+                <div className="photoGrid">
+                  {activeMemory.items.map((it) => {
+                    const isSelected = selectedPhotoIds.includes(it.id);
+
+                    return (
+                      <button
+                        key={it.id}
+                        type="button"
+                        className={`photoCard ${isSelected ? 'selected' : ''}`}
+                        onClick={() => togglePhotoSelection(it.id)}
+                      >
+                        <img
+                          src={it.imgUrl}
+                          alt={it.description || 'memory'}
+                          className="photoCardImg"
+                        />
+
+                        <div className="photoCardOverlay">
+                          <div className="photoCardCaption">{it.description}</div>
+                        </div>
+
+                        {selectMode && (
+                          <div className={`selectBadge ${isSelected ? 'checked' : ''}`}>
+                            {isSelected ? '✓' : ''}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="divider" />
 
             <div className="uploadBox">
-              <div className="uploadTitle">Add a photo to this memory (UI only)</div>
+              <div className="uploadTitle">Add a photo to this memory</div>
 
               <div className="uploadGrid">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleFilePicked}
+                />
+
                 <div className="filePick">
-                  <button className="fileBtn" onClick={() => alert('No uploading yet — skeleton')}>
+                  <button className="fileBtn" type="button" onClick={choosePhoto}>
                     Choose photo
                   </button>
-                  <div className="fileName">No file chosen</div>
+                  <div className="fileName">
+                    {pendingFile ? pendingFile.name : 'No file chosen'}
+                  </div>
                 </div>
 
                 <textarea
                   className="input"
                   rows={3}
-                  placeholder="Unique description for this photo (UI only)"
-                  disabled
+                  placeholder="Add a description"
+                  value={pendingDescription}
+                  onChange={(e) => setPendingDescription(e.target.value)}
                 />
 
-                <button className="btn full" onClick={() => alert('No uploading yet — skeleton')}>
+                <button className="btn full" type="button" onClick={uploadPhotoReal}>
                   Upload to this memory
                 </button>
 
-                <div className="status center">Uploading disabled in skeleton.</div>
+                <div className="status center">
+                  {pendingFile ? 'Ready to upload.' : 'Choose a photo to upload.'}
+                </div>
               </div>
             </div>
           </div>
@@ -440,8 +719,8 @@ export default function Dashboard() {
               <input className="input" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
 
-            <button className="btn" onClick={createMemoryFake}>Create memory</button>
-            <div className="status">Currently saves only in browser state.</div>
+            <button className="btn" onClick={createMemoryReal}>Create memory</button>
+            <div className="status">Creates a real backend album and uses its ID.</div>
           </div>
         </div>
       )}

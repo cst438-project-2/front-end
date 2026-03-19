@@ -87,13 +87,13 @@ function mapAlbumToMemory(album) {
 
   const items = photos.map((photo) => ({
     id: photo.id,
-    imgUrl: photo.photoUrl,
+    imgUrl: photo.photoUrl || photo.photo_url || '',
     description: photo.description || '',
-    storagePath: photo.storagePath || '',
+    storagePath: photo.storagePath || photo.storage_path || '',
   }));
 
   return {
-    id: album.album_id,
+    id: album.id,
     title: album.title || 'Untitled memory',
     description: rawDescription,
     startDate,
@@ -115,7 +115,8 @@ export default function Dashboard() {
 
     async function loadAlbums() {
       try {
-        const albums = await getAlbums();
+        const albumsResponse = await getAlbums();
+        const albums = Array.isArray(albumsResponse) ? albumsResponse : albumsResponse?.data || [];
         const mapped = albums.map(mapAlbumToMemory);
         setMemories(mapped);
       } catch (err) {
@@ -233,7 +234,7 @@ export default function Dashboard() {
       const now = new Date().toISOString();
 
       const mem = {
-        id: savedAlbum.album_id,
+        id: savedAlbum.id,
         title: savedAlbum.title,
         description: savedAlbum.description,
         startDate,
@@ -368,6 +369,11 @@ export default function Dashboard() {
         return;
       }
 
+      if (!activeMemory?.id) {
+        alert('This memory does not have a valid album ID yet.');
+        return;
+      }
+
       const safeName = sanitizeFileName(pendingFile.name);
       const uniqueName = `${Date.now()}-${crypto.randomUUID()}-${safeName}`;
       const storagePath = `users/${user.uid}/albums/${activeMemory.id}/${uniqueName}`;
@@ -387,9 +393,9 @@ export default function Dashboard() {
 
       const newItem = {
         id: savedPhoto?.id || crypto.randomUUID(),
-        imgUrl: savedPhoto?.photoUrl || photoUrl,
+        imgUrl: savedPhoto?.photoUrl || savedPhoto?.photo_url || photoUrl,
         description: savedPhoto?.description || payload.description,
-        storagePath: savedPhoto?.storagePath || storagePath,
+        storagePath: savedPhoto?.storagePath || savedPhoto?.storage_path || storagePath,
       };
 
       setMemories((prev) =>

@@ -1,11 +1,37 @@
 import client from './client';
 
-export const getCurrentUser = () => client.get('/api/users/me');
-export const updateCurrentUser = (data) => client.patch('/api/users/me', data);
-export const deleteCurrentUser = () => client.delete('/api/users/me');
+export const getCurrentUser = async () => {
+  const res = await client.get('/api/users/me');
+  return res.data;
+};
+
+export const updateCurrentUser = async (data) => {
+  const res = await client.patch('/api/users/me', data);
+  return res.data;
+};
+
+export const deleteCurrentUser = async () => {
+  const res = await client.delete('/api/users/me');
+  return res.data;
+};
 
 // Admin endpoints
-export const getAllUsers = () => client.get('/api/users');
-export const getUser = (id) => client.get(`/api/users/${id}`);
-export const patchUser = (id, data) => client.patch(`/api/users/${id}`, data);
-export const deleteUser = (id) => client.delete(`/api/users/${id}`);
+export const getAllUsers = async () => {
+  const res = await client.get('/api/users');
+  return res.data;
+};
+
+export const getUser = async (id) => {
+  const res = await client.get(`/api/users/${id}`);
+  return res.data;
+};
+
+export const patchUser = async (id, data) => {
+  const res = await client.patch(`/api/users/${id}`, data);
+  return res.data;
+};
+
+export const deleteUser = async (id) => {
+  const res = await client.delete(`/api/users/${id}`);
+  return res.data;
+};

@@ -1,5 +1,6 @@
 import {
   BrowserRouter,
+  Navigate,
   Outlet,
   Route,
   Routes,
@@ -29,25 +30,36 @@ function Layout() {
   );
 }
 
+function ProtectedRoute() {
+  const { user, loading } = useAuth();
+
+  if (loading) return <div className="p-6 text-gray-400">Loading...</div>;
+  if (!user) return <Navigate to="/login" replace />;
+
+  return <Outlet />;
+}
+
 function AppRoutes() {
-  const { loading } = useAuth();
+  const { user, loading } = useAuth();
 
   if (loading) return <div className="p-6 text-gray-400">Loading...</div>;
 
   return (
     <Routes>
-      {/* Login still exists */}
-      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/login"
+        element={user ? <Navigate to="/" replace /> : <LoginPage />}
+      />
 
-      {/* 🔥 NO ProtectedRoute — DEV MODE */}
-      <Route element={<Layout />}>
-        <Route path="/" element={<TimelinePage />} />
-
-        <Route path="/albums" element={<AlbumListPage />} />
-        <Route path="/albums/new" element={<CreateAlbumPage />} />
-        <Route path="/albums/:id" element={<AlbumDetailPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/admin" element={<AdminPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route element={<Layout />}>
+          <Route path="/" element={<TimelinePage />} />
+          <Route path="/albums" element={<AlbumListPage />} />
+          <Route path="/albums/new" element={<CreateAlbumPage />} />
+          <Route path="/albums/:id" element={<AlbumDetailPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/admin" element={<AdminPage />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<div className="p-6 text-gray-600">404 – Page not found.</div>} />

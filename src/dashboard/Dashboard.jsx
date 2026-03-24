@@ -87,7 +87,7 @@ function mapAlbumToMemory(album) {
 
   const items = photos.map((photo) => ({
     id: photo.id,
-    imgUrl: photo.photoUrl || photo.photo_url || '',
+    imgUrl: photo.photoUrl || photo.photo_url || null,
     description: photo.description || '',
     storagePath: photo.storagePath || photo.storage_path || '',
   }));
@@ -485,7 +485,7 @@ export default function Dashboard() {
                 boxShadow: `0 18px 44px rgba(${hexToRgbString(glowColor)}, 0.12)`,
               }}
             >
-              {activeSlide ? (
+              {activeSlide?.imgUrl ? (
                 <>
                   <img
                     src={activeSlide.imgUrl}
@@ -534,7 +534,7 @@ export default function Dashboard() {
                 >
                   <div className="nodeHeader">
                     <div className="nodeCoverWrap">
-                      {getCoverPhoto(m) ? (
+                      {getCoverPhoto(m)?.imgUrl ? (
                         <img
                           className="nodeCover"
                           src={getCoverPhoto(m).imgUrl}
@@ -639,11 +639,15 @@ export default function Dashboard() {
                         className={`photoCard ${isSelected ? 'selected' : ''}`}
                         onClick={() => togglePhotoSelection(it.id)}
                       >
-                        <img
-                          src={it.imgUrl}
-                          alt={it.description || 'memory'}
-                          className="photoCardImg"
-                        />
+                        {it.imgUrl ? (
+                          <img
+                            src={it.imgUrl}
+                            alt={it.description || 'memory'}
+                            className="photoCardImg"
+                          />
+                        ) : (
+                          <div className="photoCardImg" aria-hidden="true" />
+                        )}
 
                         <div className="photoCardOverlay">
                           <div className="photoCardCaption">{it.description}</div>

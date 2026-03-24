@@ -13,12 +13,19 @@ const client = axios.create({
 client.interceptors.request.use(async (config) => {
   const user = auth.currentUser;
 
+  console.log('API request user:', user?.email || null);
+
   // ensure headers object exists
   config.headers = config.headers || {};
 
   if (user) {
-    const token = await user.getIdToken();
+    const token = await user.getIdToken(true);
     config.headers.Authorization = `Bearer ${token}`;
+    console.log('Attaching Firebase token');
+  }
+
+  if (!user) {
+    console.log('No Firebase user, no token attached');
   }
 
   return config;

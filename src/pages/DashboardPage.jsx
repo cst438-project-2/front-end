@@ -10,18 +10,31 @@ import { useAuth } from '../context/AuthContext';
 import { auth } from '../lib/firebase';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [albums, setAlbums] = useState([]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (loading || !user) return;
+
+    let cancelled = false;
+
     getAlbums()
-      .then((res) => setAlbums(res.data))
+      .then((res) => {
+        if (cancelled) return;
+        setAlbums(res.data);
+        setError(null);
+      })
       .catch((err) => {
+        if (cancelled) return;
         if (err.response?.status === 401) setError('You must be logged in.');
         else setError('Failed to load albums.');
       });
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, loading]);
 
   // ✅ TEST BACKEND AUTH (robust)
   const testBackend = async () => {
@@ -36,7 +49,7 @@ export default function DashboardPage() {
       // force-refresh token (avoids stale tokens)
       const token = await u.getIdToken(true);
 
-      const res = await fetch('http://localhost:8080/api/me', {
+      const res = await fetch('http://localhost:8080/api/users/me', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -68,14 +81,17 @@ export default function DashboardPage() {
     }
   };
 
+  const displayedAlbums = user ? albums : [];
+  const displayedError = !loading && !user ? 'You must be logged in.' : error;
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-800 mb-1">
-        Welcome, {user?.name || user?.email || 'User'}!
+        Welcome, {user?.displayName || user?.email || 'User'}!
       </h1>
       <p className="text-gray-500 mb-6">Here's a summary of your photo albums.</p>
 
-      {error && <div className="text-red-600 mb-4">{error}</div>}
+      {displayedError && <div className="text-red-600 mb-4">{displayedError}</div>}
 
       {/* ✅ TEST BUTTON */}
       <button
@@ -95,11 +111,11 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {albums.length === 0 ? (
+      {displayedAlbums.length === 0 ? (
         <p className="text-gray-400">No albums yet. Create one to get started!</p>
       ) : (
         <div className="grid grid-cols-2 gap-4">
-          {albums.slice(0, 4).map((album) => (
+          {displayedAlbums.slice(0, 4).map((album) => (
             <Link
               key={album.id}
               to={`/albums/${album.id}`}

@@ -15,6 +15,11 @@ export const deleteCurrentUser = async () => {
   return res.data;
 };
 
+export const getAllUserAlbums = async (id) => {
+  const res = await client.get(`/api/users/${id}/albums`);
+  return res.data;
+};
+
 // Admin endpoints
 export const getAllUsers = async () => {
   const res = await client.get('/api/users');

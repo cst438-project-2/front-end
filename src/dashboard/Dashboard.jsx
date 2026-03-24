@@ -27,6 +27,7 @@ import {
   auth,
   storage,
 } from '../lib/firebase';
+import { getAllUserAlbums } from '../api/users';
 
 const seedMemories = [];
 
@@ -115,7 +116,7 @@ export default function Dashboard() {
 
     async function loadAlbums() {
       try {
-        const albumsResponse = await getAlbums();
+        const albumsResponse = await getAllUserAlbums(user.id);
         const albums = Array.isArray(albumsResponse) ? albumsResponse : albumsResponse?.data || [];
         const mapped = albums.map(mapAlbumToMemory);
         setMemories(mapped);

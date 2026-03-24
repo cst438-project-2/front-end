@@ -116,7 +116,7 @@ export default function Dashboard() {
 
     async function loadAlbums() {
       try {
-        const albumsResponse = await getAllUserAlbums(user.id);
+        const albumsResponse = await getAllUserAlbums();
         const albums = Array.isArray(albumsResponse) ? albumsResponse : albumsResponse?.data || [];
         const mapped = albums.map(mapAlbumToMemory);
         setMemories(mapped);

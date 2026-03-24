@@ -15,8 +15,8 @@ export const deleteCurrentUser = async () => {
   return res.data;
 };
 
-export const getAllUserAlbums = async (id) => {
-  const res = await client.get(`/api/users/${id}/albums`);
+export const getAllUserAlbums = async () => {
+  const res = await client.get(`/api/users/albums`);
   return res.data;
 };
 

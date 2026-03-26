@@ -385,7 +385,7 @@ export default function Dashboard() {
       const photoUrl = await getDownloadURL(fileRef);
 
       const payload = {
-        photoUrl,
+        photo_url: photoUrl,
         storagePath,
         description: pendingDescription.trim() || 'New photo',
       };

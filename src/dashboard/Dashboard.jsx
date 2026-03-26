@@ -109,6 +109,7 @@ export default function Dashboard() {
   const [memories, setMemories] = useState(() =>
     [...seedMemories].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
   );
+  const [isUploading, setIsUploading] = useState(false);
   const { user, loading } = useAuth();
 
   useEffect(() => {
@@ -360,7 +361,10 @@ export default function Dashboard() {
       return;
     }
 
+    setIsUploading(true);
+
     try {
+
       const user = auth.currentUser;
 
       if (!user) {
@@ -420,6 +424,8 @@ export default function Dashboard() {
         err?.message ||
         'Upload failed.';
       alert(message);
+    } finally {
+      setIsUploading(false);
     }
   }
 
@@ -680,12 +686,12 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <button className="btn full" type="button" onClick={uploadPhotoReal}>
-                  Upload to this memory
+                <button className="btn full" type="button" onClick={uploadPhotoReal} disabled={isUploading}>
+                  { isUploading ? "Uploading Photo..." : "Upload to this memory" }
                 </button>
 
                 <div className="status center">
-                  {pendingFile ? 'Ready to upload.' : 'Choose a photo to upload.'}
+                  {pendingFile ? '' : 'Choose a photo to upload.'}
                 </div>
               </div>
             </div>

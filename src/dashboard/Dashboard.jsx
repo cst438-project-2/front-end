@@ -547,7 +547,6 @@ export default function Dashboard() {
                       ) : (
                         <div className="nodeCover fallbackCover">No photo</div>
                       )}
-                      <div className="starBadge">★</div>
                     </div>
 
                     <div className="nodeHeaderText">

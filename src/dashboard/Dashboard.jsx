@@ -389,14 +389,8 @@ export default function Dashboard() {
       const photoUrl = await getDownloadURL(fileRef);
 
       const payload = {
-<<<<<<< HEAD
         photoUrl,
         storagePath
-=======
-        photo_url: photoUrl,
-        storagePath,
-        description: pendingDescription.trim() || 'New photo',
->>>>>>> main
       };
 
       const savedPhoto = await addPhoto(activeMemory.id, payload);

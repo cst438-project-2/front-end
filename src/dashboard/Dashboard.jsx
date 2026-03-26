@@ -20,7 +20,7 @@ import {
 } from '../api/albums';
 import {
   addPhoto,
-  deletePhoto,
+  deletePhotos,
 } from '../api/photos';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -110,6 +110,7 @@ export default function Dashboard() {
   const [memories, setMemories] = useState(() =>
     [...seedMemories].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
   );
+  const [isUploading, setIsUploading] = useState(false);
   const { user, loading } = useAuth();
 
   useEffect(() => {
@@ -309,9 +310,7 @@ export default function Dashboard() {
     if (!ok) return;
 
     try {
-      await Promise.all(
-        selectedPhotoIds.map((photoId) => deletePhoto(activeMemory.id, photoId))
-      );
+      await deletePhotos(activeMemory.id, selectedPhotoIds);
 
       setMemories((prev) =>
         prev.map((memory) => {
@@ -364,7 +363,10 @@ export default function Dashboard() {
       return;
     }
 
+    setIsUploading(true);
+
     try {
+
       const user = auth.currentUser;
 
       if (!user) {
@@ -397,7 +399,6 @@ export default function Dashboard() {
       const newItem = {
         id: savedPhoto?.id || crypto.randomUUID(),
         imgUrl: savedPhoto?.photoUrl || savedPhoto?.photo_url || photoUrl,
-        description: savedPhoto?.description || payload.description,
         storagePath: savedPhoto?.storagePath || savedPhoto?.storage_path || storagePath,
       };
 
@@ -416,7 +417,6 @@ export default function Dashboard() {
       );
 
       setPendingFile(null);
-      setPendingDescription('');
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
       console.error('Photo upload failed:', err);
@@ -427,6 +427,8 @@ export default function Dashboard() {
         err?.message ||
         'Upload failed.';
       alert(message);
+    } finally {
+      setIsUploading(false);
     }
   }
 
@@ -512,7 +514,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <section className="timeline">
+        <section className={`${memories.length ? 'timeline' : ''}`}>
           {!memories.length ? (
             <div className="emptyCard">
               No memories yet. Create your first memory.
@@ -546,7 +548,6 @@ export default function Dashboard() {
                       ) : (
                         <div className="nodeCover fallbackCover">No photo</div>
                       )}
-                      <div className="starBadge">★</div>
                     </div>
 
                     <div className="nodeHeaderText">
@@ -652,10 +653,6 @@ export default function Dashboard() {
                           <div className="photoCardImg" aria-hidden="true" />
                         )}
 
-                        <div className="photoCardOverlay">
-                          <div className="photoCardCaption">{it.description}</div>
-                        </div>
-
                         {selectMode && (
                           <div className={`selectBadge ${isSelected ? 'checked' : ''}`}>
                             {isSelected ? '✓' : ''}
@@ -691,20 +688,12 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <textarea
-                  className="input"
-                  rows={3}
-                  placeholder="Add a description"
-                  value={pendingDescription}
-                  onChange={(e) => setPendingDescription(e.target.value)}
-                />
-
-                <button className="btn full" type="button" onClick={uploadPhotoReal}>
-                  Upload to this memory
+                <button className="btn full" type="button" onClick={uploadPhotoReal} disabled={isUploading}>
+                  { isUploading ? "Uploading Photo..." : "Upload to this memory" }
                 </button>
 
                 <div className="status center">
-                  {pendingFile ? 'Ready to upload.' : 'Choose a photo to upload.'}
+                  {pendingFile ? '' : 'Choose a photo to upload.'}
                 </div>
               </div>
             </div>

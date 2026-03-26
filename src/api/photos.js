@@ -18,9 +18,11 @@ export const addPhoto = async (albumId, data) => {
     throw error;
   }
 };
-export const deletePhoto = async (albumId, photoId) => {
+export const deletePhotos = async (albumId, photoIds) => {
   try {
-    const res = await client.delete(`/api/albums/${albumId}/photos/${photoId}`);
+    const res = await client.delete(`/api/albums/${albumId}/photos`, {
+      data: photoIds
+    });
     return res.data;
   } catch (error) {
     console.error('Error deleting photo:', error);

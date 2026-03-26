@@ -384,8 +384,7 @@ export default function Dashboard() {
 
       const payload = {
         photoUrl,
-        storagePath,
-        description: pendingDescription.trim() || 'New photo',
+        storagePath
       };
 
       const savedPhoto = await addPhoto(activeMemory.id, payload);
@@ -393,7 +392,6 @@ export default function Dashboard() {
       const newItem = {
         id: savedPhoto?.id || crypto.randomUUID(),
         imgUrl: savedPhoto?.photoUrl || savedPhoto?.photo_url || photoUrl,
-        description: savedPhoto?.description || payload.description,
         storagePath: savedPhoto?.storagePath || savedPhoto?.storage_path || storagePath,
       };
 
@@ -412,7 +410,6 @@ export default function Dashboard() {
       );
 
       setPendingFile(null);
-      setPendingDescription('');
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (err) {
       console.error('Photo upload failed:', err);
@@ -648,10 +645,6 @@ export default function Dashboard() {
                           <div className="photoCardImg" aria-hidden="true" />
                         )}
 
-                        <div className="photoCardOverlay">
-                          <div className="photoCardCaption">{it.description}</div>
-                        </div>
-
                         {selectMode && (
                           <div className={`selectBadge ${isSelected ? 'checked' : ''}`}>
                             {isSelected ? '✓' : ''}
@@ -686,14 +679,6 @@ export default function Dashboard() {
                     {pendingFile ? pendingFile.name : 'No file chosen'}
                   </div>
                 </div>
-
-                <textarea
-                  className="input"
-                  rows={3}
-                  placeholder="Add a description"
-                  value={pendingDescription}
-                  onChange={(e) => setPendingDescription(e.target.value)}
-                />
 
                 <button className="btn full" type="button" onClick={uploadPhotoReal}>
                   Upload to this memory

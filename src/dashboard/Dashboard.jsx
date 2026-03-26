@@ -20,7 +20,7 @@ import {
 } from '../api/albums';
 import {
   addPhoto,
-  deletePhoto,
+  deletePhotos,
 } from '../api/photos';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -307,9 +307,7 @@ export default function Dashboard() {
     if (!ok) return;
 
     try {
-      await Promise.all(
-        selectedPhotoIds.map((photoId) => deletePhoto(activeMemory.id, photoId))
-      );
+      await deletePhotos(activeMemory.id, selectedPhotoIds);
 
       setMemories((prev) =>
         prev.map((memory) => {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { getAlbum, updateAlbum, deleteAlbum } from '../api/albums';
-import { getPhotos, addPhoto, deletePhoto } from '../api/photos';
+import { getPhotos, addPhoto, deletePhotos } from '../api/photos';
 
 export default function AlbumDetailPage() {
   const { id } = useParams();
@@ -66,7 +66,7 @@ export default function AlbumDetailPage() {
 
   const handleDeletePhoto = async (photoId) => {
     try {
-      await deletePhoto(id, photoId);
+      await deletePhotos(id, [photoId]);
       setPhotos((prev) => prev.filter((p) => p.id !== photoId));
     } catch {
       setError('Failed to delete photo.');

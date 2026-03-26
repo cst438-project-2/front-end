@@ -29,6 +29,7 @@ import {
 } from '../lib/firebase';
 import { getAllUserAlbums } from '../api/users';
 
+
 const seedMemories = [];
 
 function prettyDate(yyyyMmDd) {
@@ -385,7 +386,7 @@ export default function Dashboard() {
       const photoUrl = await getDownloadURL(fileRef);
 
       const payload = {
-        photoUrl,
+        photo_url: photoUrl,
         storagePath,
         description: pendingDescription.trim() || 'New photo',
       };

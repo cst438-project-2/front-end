@@ -22,7 +22,7 @@ export default function DashboardPage() {
     getAlbums()
       .then((res) => {
         if (cancelled) return;
-        setAlbums(res.data);
+        setAlbums(res);
         setError(null);
       })
       .catch((err) => {

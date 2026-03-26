@@ -29,7 +29,7 @@ export const createAlbum = async (data) => {
   }
 };
 
-export const updateAlbum = (id, data) => client.put(`/api/albums/${id}`, data);
+export const updateAlbum = (id, data) => client.patch(`/api/albums/${id}`, data);
 export const patchAlbum = (id, data) => client.patch(`/api/albums/${id}`, data);
 export const deleteAlbum = async (id) => {
   try {

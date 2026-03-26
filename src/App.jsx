@@ -38,6 +38,16 @@ function ProtectedRoute() {
 
   return <Outlet />;
 }
+function AdminRoute() {
+    const { user, loading, isAdmin } = useAuth();
+
+    if (loading) return <div className="p-6 text-gray-400">Loading...</div>;
+    if (!user) return <Navigate to="/login" replace />;
+    if (!isAdmin) return <Navigate to="/" replace />;
+
+    return <Outlet />;
+}
+
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -54,7 +64,9 @@ function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route path="/" element={<TimelinePage />} />
-          <Route path="/albums" element={<AlbumListPage />} />
+          <Route element={<AdminRoute />}>
+            <Route path="/albums" element={<AlbumListPage />} />
+          </Route>
           <Route path="/albums/new" element={<CreateAlbumPage />} />
           <Route path="/albums/:id" element={<AlbumDetailPage />} />
           <Route path="/profile" element={<ProfilePage />} />

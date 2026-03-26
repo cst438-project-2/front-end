@@ -8,7 +8,7 @@ export default function AlbumListPage() {
 
   const load = () => {
     getAlbums()
-      .then((res) => setAlbums(res.data))
+      .then((albums) => setAlbums(albums))
       .catch((err) => {
         if (err.response?.status === 401) setError('401 – Please log in.');
         else setError('Failed to load albums.');

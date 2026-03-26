@@ -15,9 +15,9 @@ export default function AlbumDetailPage() {
 
   useEffect(() => {
     getAlbum(id)
-      .then((res) => {
-        setAlbum(res.data);
-        setForm({ title: res.data.title, description: res.data.description || '' });
+      .then((album) => {
+        setAlbum(album);
+        setForm({ title: album.title, description: album.description || '' });
       })
       .catch((err) => {
         if (err.response?.status === 404) setError('404 – Album not found.');
@@ -26,7 +26,7 @@ export default function AlbumDetailPage() {
       });
 
     getPhotos(id)
-      .then((res) => setPhotos(res.data))
+      .then((photos) => setPhotos(photos))
       .catch(() => {});
   }, [id]);
 
@@ -56,8 +56,8 @@ export default function AlbumDetailPage() {
     e.preventDefault();
     if (!newPhotoUrl.trim()) return;
     try {
-      const res = await addPhoto(id, { url: newPhotoUrl });
-      setPhotos((prev) => [res.data, ...prev]);
+      const photo = await addPhoto(id, { photo_url: newPhotoUrl });
+      setPhotos((prev) => [photo, ...prev]);
       setNewPhotoUrl('');
     } catch {
       setError('Failed to add photo.');
@@ -136,7 +136,7 @@ export default function AlbumDetailPage() {
           <div className="grid grid-cols-3 gap-3">
             {photos.map((photo) => (
               <div key={photo.id} className="relative group">
-                <img src={photo.url} alt="" className="w-full h-36 object-cover rounded-lg" />
+                <img src={photo.photo_url} alt="" className="w-full h-36 object-cover rounded-lg" />
                 <button
                   onClick={() => handleDeletePhoto(photo.id)}
                   className="absolute top-1 right-1 bg-red-600 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition"

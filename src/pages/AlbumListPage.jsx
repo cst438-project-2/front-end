@@ -7,8 +7,9 @@ export default function AlbumListPage() {
   const [error, setError] = useState(null);
 
   const load = () => {
+
     getAlbums()
-      .then((res) => setAlbums(res.data))
+      .then((res) => { setAlbums(res) })
       .catch((err) => {
         if (err.response?.status === 401) setError('401 – Please log in.');
         else setError('Failed to load albums.');
@@ -42,7 +43,7 @@ export default function AlbumListPage() {
 
       {error && <div className="text-red-600 mb-4">{error}</div>}
 
-      {albums.length === 0 ? (
+      {!albums || albums.length === 0 ? (
         <p className="text-gray-400">No albums found.</p>
       ) : (
         <ul className="space-y-3">

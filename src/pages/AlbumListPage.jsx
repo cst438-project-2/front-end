@@ -65,12 +65,6 @@ export default function AlbumListPage() {
                 <p className="text-xs text-gray-300">{album.photoCount ?? 0} photos</p>
               </div>
               <div className="flex gap-2">
-                <Link
-                  to={`/albums/${album.id}/edit`}
-                  className="px-3 py-1 text-sm border rounded-lg hover:bg-gray-50"
-                >
-                  Edit
-                </Link>
                 <button
                   onClick={() => handleDelete(album.id)}
                   className="px-3 py-1 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50"

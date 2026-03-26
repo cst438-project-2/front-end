@@ -138,15 +138,16 @@ export default function Dashboard() {
   const latestId = useMemo(() => memories[0]?.id, [memories]);
 
   const featuredPhotos = useMemo(() => {
-    const montereyMemory = memories.find((memory) => memory.title === 'Monterey');
-    if (!montereyMemory?.items?.length) return [];
-
-    return montereyMemory.items.map((item) => ({
-      memoryId: montereyMemory.id,
-      memoryTitle: montereyMemory.title,
-      imgUrl: item.imgUrl,
-      description: item.description,
-    }));
+    return memories.flatMap((memory) =>
+      (memory.items || [])
+        .filter((item) => item.imgUrl)
+        .map((item) => ({
+          memoryId: memory.id,
+          memoryTitle: memory.title,
+          imgUrl: item.imgUrl,
+          description: item.description,
+        }))
+    );
   }, [memories]);
 
   const safeSlideshowIndex = featuredPhotos.length

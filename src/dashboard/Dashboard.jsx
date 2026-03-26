@@ -514,7 +514,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <section className="timeline">
+        <section className={`${memories.length ? 'timeline' : ''}`}>
           {!memories.length ? (
             <div className="emptyCard">
               No memories yet. Create your first memory.
